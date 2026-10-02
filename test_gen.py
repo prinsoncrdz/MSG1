@@ -11,7 +11,7 @@ def main():
         'msg_ref': 'MSG-0926-2127',
         'signatory_name': 'Pradeep Poojary',
         'signatory_title': '( QA / QC Dept )',
-        'action_type': 'fabricated / machined / modified'
+        'action_type': 'fabricated'
     }
     
     items = [
@@ -21,7 +21,7 @@ def main():
             'po_qty': '3',
             'uom': 'EA',
             'heat_number': 'S83305',
-            'remarks': 'MADE FROM PLATE THK. 25MM , MACHINED & MODIFIED AS PER REQ'
+            'remarks': 'MADE FROM PLATE THK. 25MM , ASTM A/SA 516 GR.70'
         }
     ]
     

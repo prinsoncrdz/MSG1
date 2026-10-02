@@ -65,7 +65,7 @@
                     <div>
                         <h3 class="text-xs font-bold text-amber-900">Letter of Compliance (LOC) Rule</h3>
                         <p class="text-xs text-amber-800 mt-0.5">
-                            LOC is strictly generated for **modified/fabricated/machined items** (items with <strong>Remarks</strong>). Standard items without remarks are automatically excluded from the PDF.
+                            LOC is strictly generated for **fabricated/machined/modified items** (items with <strong>Remarks</strong>). Standard items without remarks are automatically excluded from the PDF.
                         </p>
                     </div>
                 </div>
@@ -137,7 +137,7 @@
                             <option value="fabricated / machined / modified">Fabricated / Machined / Modified (Statement: "...fabricated / machined / modified...")</option>
                         </select>
                         <p class="text-[11px] text-blue-700 mt-1">
-                            Supports single or combined processes (e.g. <em>Fabricated / Machined / Modified</em>).
+                            Note: Remarks starting with <em>"MADE FROM..."</em> automatically map to <strong>Fabricated</strong>.
                         </p>
                     </div>
 
@@ -368,7 +368,7 @@
                 msg_ref: 'MSG-0926-2127',
                 signatory_name: 'Pradeep Poojary',
                 signatory_title: '( QA / QC Dept )',
-                action_type: 'fabricated / modified'
+                action_type: 'fabricated'
             };
 
             const sampleItems = [
@@ -417,7 +417,6 @@
 
             if (metadata.action_type) {
                 const sel = document.getElementById('meta-action-type');
-                // Check if exact option exists, or create custom option if needed
                 let matched = false;
                 for (let i = 0; i < sel.options.length; i++) {
                     if (sel.options[i].value === metadata.action_type) {
@@ -493,6 +492,32 @@
         function updateItemField(index, field, value) {
             if (currentItems[index]) {
                 currentItems[index][field] = value;
+
+                // Auto-detect action type from remarks text
+                if (field === 'remarks') {
+                    const valLower = String(value).toLowerCase();
+                    const detected = [];
+                    if (valLower.includes('made') || valLower.includes('fabricat') || valLower.includes('plate')) {
+                        detected.push('fabricated');
+                    }
+                    if (valLower.includes('machin') || valLower.includes('thread')) {
+                        detected.push('machined');
+                    }
+                    if (valLower.includes('modif')) {
+                        detected.push('modified');
+                    }
+                    if (detected.length > 0) {
+                        const sel = document.getElementById('meta-action-type');
+                        const combined = detected.join(' / ');
+                        for (let i = 0; i < sel.options.length; i++) {
+                            if (sel.options[i].value === combined) {
+                                sel.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 renderItemsTable();
                 triggerAutoPreview();
             }
@@ -511,7 +536,7 @@
                 po_qty: '1',
                 uom: 'EA',
                 heat_number: '',
-                remarks: 'FABRICATED / MODIFIED AS PER CLIENT SPECIFICATION'
+                remarks: 'MADE FROM PLATE THK. 25MM'
             });
             renderItemsTable();
             updatePreview();

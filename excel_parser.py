@@ -111,13 +111,14 @@ def parse_excel_summary(file_path_or_stream, include_all=False):
         if 'TOTAL' in desc.upper() or 'SUMMARY' in desc.upper():
             continue
 
-        # Detect multiple actions from remarks text
+        # Detect actions from remarks text:
+        # 'MADE', 'MADE FROM', 'FABRICAT', 'PLATE' -> FABRICATED
         rem_lower = remarks.lower()
-        if 'fabricat' in rem_lower or 'plate' in rem_lower or 'make' in rem_lower:
+        if 'made' in rem_lower or 'fabricat' in rem_lower or 'plate' in rem_lower:
             found_actions.add('fabricated')
-        if 'machin' in rem_lower or 'mac' in rem_lower or 'thread' in rem_lower:
+        if 'machin' in rem_lower or 'thread' in rem_lower:
             found_actions.add('machined')
-        if 'modif' in rem_lower or 'mod' in rem_lower:
+        if 'modif' in rem_lower or 'modified' in rem_lower:
             found_actions.add('modified')
 
         if not include_all and not remarks.strip():
