@@ -50,6 +50,8 @@ def generate_pdf():
     metadata = req_data.get('metadata', {})
     items = req_data.get('items', [])
     filter_empty = req_data.get('filter_empty_remarks', True)
+    signature_data = req_data.get('signature_data', None)
+    stamp_data = req_data.get('stamp_data', None)
 
     filtered_items = filter_loc_items(items, filter_empty)
 
@@ -61,7 +63,7 @@ def generate_pdf():
 
     try:
         pdf_buffer = io.BytesIO()
-        generate_loc_pdf(metadata, filtered_items, pdf_buffer)
+        generate_loc_pdf(metadata, filtered_items, pdf_buffer, signature_data=signature_data, stamp_data=stamp_data)
         pdf_buffer.seek(0)
         
         filename = f"LOC_{metadata.get('po_number', 'Document')}.pdf".replace(' ', '_')
@@ -83,6 +85,8 @@ def preview_pdf():
     metadata = req_data.get('metadata', {})
     items = req_data.get('items', [])
     filter_empty = req_data.get('filter_empty_remarks', True)
+    signature_data = req_data.get('signature_data', None)
+    stamp_data = req_data.get('stamp_data', None)
 
     filtered_items = filter_loc_items(items, filter_empty)
 
@@ -94,7 +98,7 @@ def preview_pdf():
 
     try:
         pdf_buffer = io.BytesIO()
-        generate_loc_pdf(metadata, filtered_items, pdf_buffer)
+        generate_loc_pdf(metadata, filtered_items, pdf_buffer, signature_data=signature_data, stamp_data=stamp_data)
         pdf_bytes = pdf_buffer.getvalue()
 
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")

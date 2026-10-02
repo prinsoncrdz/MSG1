@@ -1,4 +1,6 @@
 import os
+import io
+import base64
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
@@ -12,7 +14,7 @@ from PIL import Image as PILImage
 class NumberedCanvas(canvas.Canvas):
     """
     Two-pass canvas to draw official MSG Letterhead header, footer,
-    and page numbers on every page.
+    and page numbers spanning FULL PAGE WIDTH (edge-to-edge).
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -38,42 +40,41 @@ class NumberedCanvas(canvas.Canvas):
         header_path = os.path.join(script_dir, 'assets', 'msg_header.png')
         footer_path = os.path.join(script_dir, 'assets', 'msg_footer.png')
 
-        # 1. Top Header Banner
+        # 1. Top Header Banner - FULL PAGE WIDTH (x=0, width=page_w)
         if os.path.exists(header_path):
             try:
-                # Render exact extracted header banner
                 self.drawImage(
                     header_path,
-                    x=10 * mm,
-                    y=page_h - 38 * mm,
-                    width=page_w - 20 * mm,
-                    height=32 * mm,
-                    preserveAspectRatio=True,
+                    x=0,
+                    y=page_h - 40 * mm,
+                    width=page_w,
+                    height=40 * mm,
+                    preserveAspectRatio=False,
                     mask='auto'
                 )
             except Exception as e:
                 print("Header draw warning:", e)
 
-        # 2. Bottom Footer Banner
+        # 2. Bottom Footer Banner - FULL PAGE WIDTH (x=0, width=page_w)
         if os.path.exists(footer_path):
             try:
                 self.drawImage(
                     footer_path,
-                    x=10 * mm,
-                    y=6 * mm,
-                    width=page_w - 20 * mm,
-                    height=22 * mm,
-                    preserveAspectRatio=True,
+                    x=0,
+                    y=0,
+                    width=page_w,
+                    height=26 * mm,
+                    preserveAspectRatio=False,
                     mask='auto'
                 )
             except Exception as e:
                 print("Footer draw warning:", e)
         else:
             # Fallback text footer if image missing
-            footer_y = 12 * mm
+            footer_y = 10 * mm
             self.setStrokeColor(colors.HexColor("#003399"))
             self.setLineWidth(1.5)
-            self.line(10 * mm, footer_y + 10 * mm, page_w - 10 * mm, footer_y + 10 * mm)
+            self.line(0, footer_y + 12 * mm, page_w, footer_y + 12 * mm)
 
             self.setFont("Helvetica", 8)
             self.setFillColor(colors.HexColor("#333333"))
@@ -81,10 +82,10 @@ class NumberedCanvas(canvas.Canvas):
             contact_line = "☎ +971 4 295 1222    |    ✉ sales@msgoilfield.com    |    🌐 www.msgoilfield.com"
             address_line = "Dubai Industrial City Phase-1, Saih Shuaib 2, Warehouse No:J-04, Dubai, UAE."
 
-            self.drawCentredString(page_w / 2.0, footer_y + 5 * mm, contact_line)
-            self.drawCentredString(page_w / 2.0, footer_y + 1.5 * mm, address_line)
+            self.drawCentredString(page_w / 2.0, footer_y + 6 * mm, contact_line)
+            self.drawCentredString(page_w / 2.0, footer_y + 2 * mm, address_line)
 
-        # Page Number (bottom right margin)
+        # Page Number (bottom right)
         if page_count > 1:
             self.setFont("Helvetica", 7.5)
             self.setFillColor(colors.HexColor("#666666"))
@@ -93,36 +94,59 @@ class NumberedCanvas(canvas.Canvas):
         self.restoreState()
 
 
-def get_image_dimensions(img_path, max_w, max_h):
-    """Calculate proportional dimensions for ReportLab RLImage."""
+def get_image_dimensions(img_source, max_w, max_h):
+    """Calculate proportional dimensions for ReportLab RLImage from file path or BytesIO."""
     try:
-        with PILImage.open(img_path) as im:
-            w, h = im.size
-            aspect = w / float(h)
-            target_w = max_w
-            target_h = max_w / aspect
-            if target_h > max_h:
-                target_h = max_h
-                target_w = max_h * aspect
-            return target_w, target_h
-    except Exception:
+        if isinstance(img_source, str):
+            im = PILImage.open(img_source)
+        else:
+            im = PILImage.open(img_source)
+            img_source.seek(0)
+            
+        w, h = im.size
+        aspect = w / float(h)
+        target_w = max_w
+        target_h = max_w / aspect
+        if target_h > max_h:
+            target_h = max_h
+            target_w = max_h * aspect
+        return target_w, target_h
+    except Exception as e:
+        print("Image dimension check error:", e)
         return max_w, max_h
 
 
-def generate_loc_pdf(metadata, items, output_target):
+def parse_image_data(img_data_str_or_bytes):
+    """Parses base64 data URL or path into a BytesIO or path for ReportLab."""
+    if not img_data_str_or_bytes:
+        return None
+    if isinstance(img_data_str_or_bytes, str) and img_data_str_or_bytes.startswith('data:image'):
+        try:
+            header, base64_str = img_data_str_or_bytes.split(',', 1)
+            img_bytes = base64.b64decode(base64_str)
+            return io.BytesIO(img_bytes)
+        except Exception as e:
+            print("Failed to decode base64 image:", e)
+            return None
+    return img_data_str_or_bytes
+
+
+def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_data=None):
     """
     Generates a Letter of Compliance (LOC) PDF based on exact MSG specifications.
     
     metadata: dict with keys: 'date', 'to_client', 'po_number', 'msg_ref', 'signatory_name', 'signatory_title'
     items: list of dicts with keys: 'sl_no', 'description', 'po_qty', 'uom', 'heat_number', 'remarks'
     output_target: file path string OR BytesIO stream
+    signature_data: optional custom uploaded signature (base64 URL or file path)
+    stamp_data: optional custom uploaded stamp (base64 URL or file path)
     """
     doc = SimpleDocTemplate(
         output_target,
         pagesize=A4,
         leftMargin=14 * mm,
         rightMargin=14 * mm,
-        topMargin=42 * mm,
+        topMargin=44 * mm,
         bottomMargin=30 * mm
     )
 
@@ -251,7 +275,6 @@ def generate_loc_pdf(metadata, items, output_target):
     elements.append(Spacer(1, 14))
 
     # 4. Table Construction
-    # Column Width Allocation (Total = printable_w = ~515.8 pt)
     col_w = [48, 180, 45, 40, 70, printable_w - (48 + 180 + 45 + 40 + 70)]
 
     table_data = [
@@ -291,27 +314,31 @@ def generate_loc_pdf(metadata, items, output_target):
 
     # 5. Signature Section
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    sig_img_path = os.path.join(script_dir, 'assets', 'signature.png')
-    stamp_img_path = os.path.join(script_dir, 'assets', 'stamp.png')
+    default_sig_path = os.path.join(script_dir, 'assets', 'signature.png')
+    default_stamp_path = os.path.join(script_dir, 'assets', 'stamp.png')
+
+    sig_src = parse_image_data(signature_data) or (default_sig_path if os.path.exists(default_sig_path) else None)
+    stamp_src = parse_image_data(stamp_data) or (default_stamp_path if os.path.exists(default_stamp_path) else None)
 
     sig_elements = []
     sig_elements.append(Paragraph("<b>For MSG Oilfield Equipment Trading,</b>", sig_company_style))
     sig_elements.append(Spacer(1, 6))
 
-    has_sig = os.path.exists(sig_img_path)
-    has_stamp = os.path.exists(stamp_img_path)
-
-    if has_sig or has_stamp:
+    if sig_src or stamp_src:
         sig_cells = []
-        if has_sig:
-            sw, sh = get_image_dimensions(sig_img_path, 110, 45)
-            sig_cells.append(RLImage(sig_img_path, width=sw, height=sh))
+        if sig_src:
+            sw, sh = get_image_dimensions(sig_src, 110, 45)
+            if isinstance(sig_src, io.BytesIO):
+                sig_src.seek(0)
+            sig_cells.append(RLImage(sig_src, width=sw, height=sh))
         else:
             sig_cells.append(Paragraph("", body_style))
 
-        if has_stamp:
-            stw, sth = get_image_dimensions(stamp_img_path, 90, 55)
-            sig_cells.append(RLImage(stamp_img_path, width=stw, height=sth))
+        if stamp_src:
+            stw, sth = get_image_dimensions(stamp_src, 90, 55)
+            if isinstance(stamp_src, io.BytesIO):
+                stamp_src.seek(0)
+            sig_cells.append(RLImage(stamp_src, width=stw, height=sth))
         else:
             sig_cells.append(Paragraph("", body_style))
 
