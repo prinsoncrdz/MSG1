@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSG - Letter of Compliance (LOC) Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white shadow-md border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 bg-red-600 rounded-lg flex items-center justify-center font-bold text-lg tracking-wider text-white shadow-sm">
+                    MSG
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">Letter of Compliance (LOC) Generator</h1>
+                    <p class="text-xs text-slate-400">MSG Oilfield Equipment Trading LLC</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="loadSampleData()" class="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i>
+                    <span>Load Sample Data</span>
+                </button>
+                <button onclick="downloadPDF()" class="px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow transition flex items-center space-x-2">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Download LOC PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main App Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Controls & Data Table (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col space-y-6">
+
+            <!-- LOC Rule Info Notice -->
+            <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm">
+                <div class="flex items-start space-x-3">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5"></i>
+                    <div>
+                        <h3 class="text-xs font-bold text-amber-900">Letter of Compliance (LOC) Rule</h3>
+                        <p class="text-xs text-amber-800 mt-0.5">
+                            LOC is strictly generated for **modified/fabricated items** (items with <strong>Remarks</strong>). Standard items without remarks are automatically excluded from the PDF.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 1: File Upload Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                        <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center">1</span>
+                        <span>Import Excel Summary Sheet</span>
+                    </h2>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="chk-import-all" class="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5" onchange="reimportFile()">
+                        <label for="chk-import-all" class="text-xs text-slate-600 font-medium">Show items without remarks in editor</label>
+                    </div>
+                </div>
+                <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-5 text-center cursor-pointer bg-slate-50 hover:bg-blue-50/40 transition">
+                    <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="hidden" onchange="handleFileUpload(this.files)">
+                    <div class="flex flex-col items-center justify-center space-y-2">
+                        <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                            <i class="fa-solid fa-cloud-arrow-up text-lg text-blue-600"></i>
+                        </div>
+                        <p class="text-xs text-slate-600 font-medium">
+                            <span class="text-blue-600 underline">Click to upload</span> or drag and drop Excel sheet here
+                        </p>
+                        <p class="text-[11px] text-slate-400" id="file-name-display">No file selected yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Document Header Metadata -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-sm font-bold text-slate-900 flex items-center space-x-2 mb-4">
+                    <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center">2</span>
+                    <span>Document Header Metadata</span>
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Date</label>
+                        <input type="text" id="meta-date" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="28/09/2026" onchange="triggerAutoPreview()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">TO (Client Name)</label>
+                        <input type="text" id="meta-client" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="REI Oil & Gas Process Services" onchange="triggerAutoPreview()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">PO Number</label>
+                        <input type="text" id="meta-po" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="U-PO003447" onchange="triggerAutoPreview()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">MSG Ref</label>
+                        <input type="text" id="meta-ref" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="MSG-0926-2127" onchange="triggerAutoPreview()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Signatory Name</label>
+                        <input type="text" id="meta-sig-name" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" value="Pradeep Poojary" onchange="triggerAutoPreview()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Signatory Title</label>
+                        <input type="text" id="meta-sig-title" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" value="( QA / QC Dept )" onchange="triggerAutoPreview()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Line Items Data Editor Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center">3</span>
+                            <span>Line Items Editor</span>
+                        </h2>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Only items with Remarks will be included on the LOC PDF</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="flex items-center space-x-1.5 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
+                            <input type="checkbox" id="chk-filter-empty" checked class="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5" onchange="updatePreview()">
+                            <label for="chk-filter-empty" class="text-xs text-slate-700 font-semibold cursor-pointer">Only print items with Remarks</label>
+                        </div>
+                        <button onclick="addNewRow()" class="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition flex items-center space-x-1">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Add Item</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scrollable Table -->
+                <div class="overflow-x-auto border border-slate-200 rounded-lg custom-scrollbar max-h-[420px]">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-slate-100 text-slate-700 font-semibold sticky top-0 z-10">
+                            <tr>
+                                <th class="p-2 border-b w-16 text-center">Sl.No</th>
+                                <th class="p-2 border-b">Description</th>
+                                <th class="p-2 border-b w-16 text-center">PO Qty</th>
+                                <th class="p-2 border-b w-16 text-center">UOM</th>
+                                <th class="p-2 border-b w-24 text-center">Heat No.</th>
+                                <th class="p-2 border-b">Remarks (LOC Modification)</th>
+                                <th class="p-2 border-b w-12 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-table-body" class="divide-y divide-slate-200">
+                            <!-- Dynamic Rows Injected Here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-4 flex items-center justify-between pt-3 border-t border-slate-100">
+                    <span class="text-xs text-slate-500" id="item-count-label">0 items loaded</span>
+                    <button onclick="updatePreview()" class="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition flex items-center space-x-2">
+                        <i class="fa-solid fa-arrows-rotate text-blue-600"></i>
+                        <span>Refresh PDF Preview</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right PDF Preview Panel (5 Cols) -->
+        <div class="lg:col-span-5 flex flex-col">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex-1 flex flex-col sticky top-20">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                        <i class="fa-solid fa-file-pdf text-red-500"></i>
+                        <span>Live LOC PDF Preview</span>
+                    </h2>
+                    <span id="preview-status" class="text-xs text-slate-400">Updated</span>
+                </div>
+
+                <!-- PDF Preview Container -->
+                <div id="preview-container" class="flex-1 bg-slate-100 rounded-lg border border-slate-200 p-3 flex flex-col items-center justify-center min-h-[520px] overflow-y-auto custom-scrollbar">
+                    <div id="preview-placeholder" class="text-center p-6 text-slate-400">
+                        <i class="fa-solid fa-file-invoice text-4xl mb-3 text-slate-300"></i>
+                        <p class="text-xs font-medium">PDF preview will appear here</p>
+                        <p class="text-[11px] text-slate-400 mt-1">Upload an Excel sheet or load sample data to view</p>
+                    </div>
+                    <div id="preview-images" class="hidden w-full space-y-4 flex flex-col items-center">
+                        <!-- Rendered PNG preview pages -->
+                    </div>
+                </div>
+
+                <!-- Bottom Download Button -->
+                <div class="mt-4">
+                    <button onclick="downloadPDF()" class="w-full py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-file-arrow-down text-sm"></i>
+                        <span>Download Letter of Compliance (PDF)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let currentItems = [];
+        let autoPreviewTimer = null;
+        let lastUploadedFile = null;
+
+        // Initialize drag and drop
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('excel-file-input');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+            if (e.dataTransfer.files.length) {
+                handleFileUpload(e.dataTransfer.files);
+            }
+        });
+
+        function handleFileUpload(files) {
+            if (!files.length) return;
+            const file = files[0];
+            lastUploadedFile = file;
+            document.getElementById('file-name-display').innerText = file.name;
+            reimportFile();
+        }
+
+        function reimportFile() {
+            if (!lastUploadedFile) return;
+            const includeAll = document.getElementById('chk-import-all').checked;
+
+            const formData = new FormData();
+            formData.append('file', lastUploadedFile);
+            formData.append('include_all', includeAll);
+
+            document.getElementById('preview-status').innerText = 'Uploading & parsing...';
+
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    populateForm(data.metadata, data.items);
+                } else {
+                    alert('Error parsing Excel: ' + data.error);
+                }
+            })
+            .catch(err => {
+                alert('Upload failed: ' + err.message);
+            });
+        }
+
+        function loadSampleData() {
+            const sampleMetadata = {
+                date: '28/09/2026',
+                to_client: 'REI Oil & Gas Process Services',
+                po_number: 'U-PO003447',
+                msg_ref: 'MSG-0926-2127',
+                signatory_name: 'Pradeep Poojary',
+                signatory_title: '( QA / QC Dept )'
+            };
+
+            // Sample item: Only item 10000 has remarks (modified material)
+            const sampleItems = [
+                {
+                    sl_no: '10000',
+                    description: '3/4", SPECTACLE BLIND, 300LB, RF, ASTM A350 Gr.LF2 CL.1, ASME B16.48',
+                    po_qty: '3',
+                    uom: 'EA',
+                    heat_number: 'S83305',
+                    remarks: 'MADE FROM PLATE THK. 25MM , ASTM A/SA 516 GR.70'
+                }
+            ];
+
+            if (document.getElementById('chk-import-all').checked) {
+                sampleItems.push(
+                    {
+                        sl_no: '20000',
+                        description: '3" x 1/2", THREAD-O-LET, THREADED, CLASS 6000, ASTM A350 GR. LF2 CL.1, MSS SP-97',
+                        po_qty: '2',
+                        uom: 'EA',
+                        heat_number: '7D6P',
+                        remarks: ''
+                    },
+                    {
+                        sl_no: '30000',
+                        description: '2" x 1/2", THREAD-O-LET, THREADED, CLASS 6000, ASTM A350 GR. LF2 CL.1, MSS SP-97',
+                        po_qty: '1',
+                        uom: 'EA',
+                        heat_number: '7D6P',
+                        remarks: ''
+                    }
+                );
+            }
+
+            document.getElementById('file-name-display').innerText = 'Loaded sample data (Image 1 match)';
+            populateForm(sampleMetadata, sampleItems);
+        }
+
+        function populateForm(metadata, items) {
+            document.getElementById('meta-date').value = metadata.date || '';
+            document.getElementById('meta-client').value = metadata.to_client || '';
+            document.getElementById('meta-po').value = metadata.po_number || '';
+            document.getElementById('meta-ref').value = metadata.msg_ref || '';
+            document.getElementById('meta-sig-name').value = metadata.signatory_name || 'Pradeep Poojary';
+            document.getElementById('meta-sig-title').value = metadata.signatory_title || '( QA / QC Dept )';
+
+            currentItems = items || [];
+            renderItemsTable();
+            updatePreview();
+        }
+
+        function renderItemsTable() {
+            const tbody = document.getElementById('items-table-body');
+            tbody.innerHTML = '';
+
+            if (currentItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="p-4 text-center text-slate-400 italic">No LOC items found (items with Remarks). Add a remark to an item or click "Add Item".</td>
+                    </tr>
+                `;
+                document.getElementById('item-count-label').innerText = '0 items';
+                return;
+            }
+
+            currentItems.forEach((item, index) => {
+                const hasRemark = item.remarks && String(item.remarks).trim() !== '';
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-slate-50 transition border-b border-slate-100 ${!hasRemark ? 'bg-amber-50/40 opacity-75' : ''}`;
+                tr.innerHTML = `
+                    <td class="p-1.5 text-center">
+                        <input type="text" value="${escapeHtml(item.sl_no)}" onchange="updateItemField(${index}, 'sl_no', this.value)" class="w-full text-center px-1 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                    </td>
+                    <td class="p-1.5">
+                        <input type="text" value="${escapeHtml(item.description)}" onchange="updateItemField(${index}, 'description', this.value)" class="w-full px-2 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                    </td>
+                    <td class="p-1.5 text-center">
+                        <input type="text" value="${escapeHtml(item.po_qty)}" onchange="updateItemField(${index}, 'po_qty', this.value)" class="w-full text-center px-1 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                    </td>
+                    <td class="p-1.5 text-center">
+                        <input type="text" value="${escapeHtml(item.uom)}" onchange="updateItemField(${index}, 'uom', this.value)" class="w-full text-center px-1 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                    </td>
+                    <td class="p-1.5 text-center">
+                        <input type="text" value="${escapeHtml(item.heat_number)}" onchange="updateItemField(${index}, 'heat_number', this.value)" class="w-full text-center px-1 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                    </td>
+                    <td class="p-1.5">
+                        <input type="text" value="${escapeHtml(item.remarks)}" onchange="updateItemField(${index}, 'remarks', this.value)" placeholder="Enter modification remark..." class="w-full px-2 py-1 border ${hasRemark ? 'border-emerald-400 bg-emerald-50/30 font-medium' : 'border-slate-300'} rounded focus:ring-1 focus:ring-blue-500 text-slate-800">
+                    </td>
+                    <td class="p-1.5 text-center">
+                        <button onclick="deleteItem(${index})" title="Delete Item" class="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const countWithRemarks = currentItems.filter(i => i.remarks && String(i.remarks).trim() !== '').length;
+            document.getElementById('item-count-label').innerHTML = `<span class="font-bold text-slate-700">${countWithRemarks}</span> LOC item(s) with Remarks (out of ${currentItems.length} total)`;
+        }
+
+        function updateItemField(index, field, value) {
+            if (currentItems[index]) {
+                currentItems[index][field] = value;
+                renderItemsTable();
+                triggerAutoPreview();
+            }
+        }
+
+        function deleteItem(index) {
+            currentItems.splice(index, 1);
+            renderItemsTable();
+            updatePreview();
+        }
+
+        function addNewRow() {
+            currentItems.push({
+                sl_no: ((currentItems.length + 1) * 10000).toString(),
+                description: '',
+                po_qty: '1',
+                uom: 'EA',
+                heat_number: '',
+                remarks: 'FABRICATED / MODIFIED AS PER CLIENT REQ'
+            });
+            renderItemsTable();
+            updatePreview();
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function getPayload() {
+            return {
+                metadata: {
+                    date: document.getElementById('meta-date').value,
+                    to_client: document.getElementById('meta-client').value,
+                    po_number: document.getElementById('meta-po').value,
+                    msg_ref: document.getElementById('meta-ref').value,
+                    signatory_name: document.getElementById('meta-sig-name').value,
+                    signatory_title: document.getElementById('meta-sig-title').value
+                },
+                items: currentItems,
+                filter_empty_remarks: document.getElementById('chk-filter-empty').checked
+            };
+        }
+
+        function triggerAutoPreview() {
+            if (autoPreviewTimer) clearTimeout(autoPreviewTimer);
+            autoPreviewTimer = setTimeout(() => {
+                updatePreview();
+            }, 600);
+        }
+
+        function updatePreview() {
+            document.getElementById('preview-status').innerText = 'Updating preview...';
+
+            fetch('/api/preview-pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(getPayload())
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const placeholder = document.getElementById('preview-placeholder');
+                    const imgContainer = document.getElementById('preview-images');
+                    placeholder.classList.add('hidden');
+                    imgContainer.classList.remove('hidden');
+                    imgContainer.innerHTML = '';
+
+                    data.page_images.forEach((imgSrc, idx) => {
+                        const img = document.createElement('img');
+                        img.src = imgSrc;
+                        img.className = 'w-full shadow-md rounded border border-slate-200 bg-white mb-3';
+                        imgContainer.appendChild(img);
+                    });
+
+                    document.getElementById('preview-status').innerText = `Updated (${data.item_count} item${data.item_count > 1 ? 's' : ''})`;
+                } else {
+                    const placeholder = document.getElementById('preview-placeholder');
+                    const imgContainer = document.getElementById('preview-images');
+                    imgContainer.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                    placeholder.innerHTML = `
+                        <i class="fa-solid fa-circle-exclamation text-amber-500 text-3xl mb-2"></i>
+                        <p class="text-xs font-bold text-slate-700">${data.error || 'No items to print'}</p>
+                        <p class="text-[11px] text-slate-400 mt-1">Add a remark to an item to print on LOC</p>
+                    `;
+                    document.getElementById('preview-status').innerText = 'No LOC items';
+                }
+            })
+            .catch(err => {
+                document.getElementById('preview-status').innerText = 'Failed to update';
+            });
+        }
+
+        function downloadPDF() {
+            fetch('/api/generate-pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(getPayload())
+            })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(errData => {
+                        throw new Error(errData.error || 'PDF Generation failed');
+                    });
+                }
+                return res.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const poNum = document.getElementById('meta-po').value || 'Doc';
+                a.download = `LOC_${poNum.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            })
+            .catch(err => {
+                alert('Download Notice: ' + err.message);
+            });
+        }
+
+        // Auto load sample data on initial load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSampleData();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+test_loc.pdf
+test_loc_page1.png
+*.log
