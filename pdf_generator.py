@@ -1,6 +1,7 @@
 import os
 import io
 import base64
+import re
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
@@ -129,6 +130,40 @@ def parse_image_data(img_data_str_or_bytes):
             print("Failed to decode base64 image:", e)
             return None
     return img_data_str_or_bytes
+
+
+def build_compliance_wording(action_type):
+    """
+    Builds dynamic verb and noun combinations for the compliance statement.
+    Handles combinations like:
+    - 'fabricated' -> verb: 'fabricated', noun: 'fabrication'
+    - 'fabricated / machined' -> verb: 'fabricated / machined', noun: 'fabrication / machining'
+    - 'fabricated / machined / modified' -> verb: 'fabricated / machined / modified', noun: 'fabrication / machining / modification'
+    """
+    action_str = str(action_type or 'fabricated').lower()
+
+    verbs = []
+    nouns = []
+
+    # Preserve order: fabricated, machined, modified
+    if 'fabricat' in action_str or 'make' in action_str:
+        verbs.append('fabricated')
+        nouns.append('fabrication')
+    if 'machin' in action_str or 'mac' in action_str:
+        verbs.append('machined')
+        nouns.append('machining')
+    if 'modif' in action_str or 'mod' in action_str:
+        verbs.append('modified')
+        nouns.append('modification')
+
+    if not verbs:
+        verbs = ['fabricated']
+        nouns = ['fabrication']
+
+    verb_text = " / ".join(verbs)
+    noun_text = " / ".join(nouns)
+
+    return verb_text, noun_text
 
 
 def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_data=None):
@@ -265,30 +300,20 @@ def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_
     elements.append(title_p)
     elements.append(Spacer(1, 14))
 
-    # 3. Dynamic Action Compliance Declaration (fabricated / modified / machined)
-    action_type = str(metadata.get('action_type', 'fabricated')).lower().strip()
-    
-    if 'modified' in action_type:
-        verb = "modified"
-        noun = "modification"
-    elif 'machined' in action_type:
-        verb = "machined"
-        noun = "machining"
-    else:
-        verb = "fabricated"
-        noun = "fabrication"
+    # 3. Dynamic Action Compliance Declaration (supports combined fabricated / machined / modified)
+    action_type = metadata.get('action_type', 'fabricated')
+    verb_text, noun_text = build_compliance_wording(action_type)
 
     statement_text = (
-        f"We hereby confirm that below listed items have been <b>{verb}</b> as per the client PO requirements. "
-        f"Subsequent to the <b>{noun}</b>, dimensional verification and visual inspection were conducted, "
+        f"We hereby confirm that below listed items have been <b>{verb_text}</b> as per the client PO requirements. "
+        f"Subsequent to the <b>{noun_text}</b>, dimensional verification and visual inspection were conducted, "
         f"and the items are found to be acceptable and in full compliance with the applicable standards."
     )
     elements.append(Paragraph(statement_text, body_style))
     elements.append(Spacer(1, 14))
 
     # 4. Table Construction
-    # Increased Description column width to 210pt to give ample space for longer descriptions
-    col_w = [40, 210, 40, 35, 60, printable_w - (40 + 210 + 40 + 35 + 60)] # Remarks = ~130.8 pt
+    col_w = [40, 210, 40, 35, 60, printable_w - (40 + 210 + 40 + 35 + 60)]
 
     table_data = [
         [

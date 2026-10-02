@@ -11,17 +11,17 @@ def main():
         'msg_ref': 'MSG-0926-2127',
         'signatory_name': 'Pradeep Poojary',
         'signatory_title': '( QA / QC Dept )',
-        'action_type': 'modified'
+        'action_type': 'fabricated / machined / modified'
     }
     
     items = [
         {
             'sl_no': '10000',
-            'description': '3/4", SPECTACLE BLIND, 300LB, RF, ASTM A350 Gr.LF2 CL.1, ASME B16.48 (MODIFIED AS PER CLIENT REQUIREMENTS WITH EXTRA SPECIFICATIONS)',
+            'description': '3/4", SPECTACLE BLIND, 300LB, RF, ASTM A350 Gr.LF2 CL.1, ASME B16.48',
             'po_qty': '3',
             'uom': 'EA',
             'heat_number': 'S83305',
-            'remarks': 'MADE FROM PLATE THK. 25MM , ASTM A/SA 516 GR.70'
+            'remarks': 'MADE FROM PLATE THK. 25MM , MACHINED & MODIFIED AS PER REQ'
         }
     ]
     

@@ -128,12 +128,16 @@
                             <span>Process / Action Wording for Top Statement</span>
                         </label>
                         <select id="meta-action-type" class="w-full text-xs px-3 py-2 border border-blue-300 rounded-md font-semibold text-blue-950 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" onchange="triggerAutoPreview()">
-                            <option value="fabricated">Fabricated (Statement: "...items have been fabricated as per PO requirements...")</option>
-                            <option value="modified">Modified (Statement: "...items have been modified as per PO requirements...")</option>
-                            <option value="machined">Machined (Statement: "...items have been machined as per PO requirements...")</option>
+                            <option value="fabricated">Fabricated (Statement: "...items have been fabricated...")</option>
+                            <option value="modified">Modified (Statement: "...items have been modified...")</option>
+                            <option value="machined">Machined (Statement: "...items have been machined...")</option>
+                            <option value="fabricated / modified">Fabricated / Modified (Statement: "...fabricated / modified...")</option>
+                            <option value="fabricated / machined">Fabricated / Machined (Statement: "...fabricated / machined...")</option>
+                            <option value="machined / modified">Machined / Modified (Statement: "...machined / modified...")</option>
+                            <option value="fabricated / machined / modified">Fabricated / Machined / Modified (Statement: "...fabricated / machined / modified...")</option>
                         </select>
                         <p class="text-[11px] text-blue-700 mt-1">
-                            Selecting <strong>Modified</strong> updates top statement to: <em>"We hereby confirm that below listed items have been modified..."</em>
+                            Supports single or combined processes (e.g. <em>Fabricated / Machined / Modified</em>).
                         </p>
                     </div>
 
@@ -364,7 +368,7 @@
                 msg_ref: 'MSG-0926-2127',
                 signatory_name: 'Pradeep Poojary',
                 signatory_title: '( QA / QC Dept )',
-                action_type: 'modified'
+                action_type: 'fabricated / modified'
             };
 
             const sampleItems = [
@@ -410,7 +414,26 @@
             document.getElementById('meta-ref').value = metadata.msg_ref || '';
             document.getElementById('meta-sig-name').value = metadata.signatory_name || 'Pradeep Poojary';
             document.getElementById('meta-sig-title').value = metadata.signatory_title || '( QA / QC Dept )';
-            document.getElementById('meta-action-type').value = metadata.action_type || 'modified';
+
+            if (metadata.action_type) {
+                const sel = document.getElementById('meta-action-type');
+                // Check if exact option exists, or create custom option if needed
+                let matched = false;
+                for (let i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value === metadata.action_type) {
+                        sel.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    const opt = document.createElement('option');
+                    opt.value = metadata.action_type;
+                    opt.text = `${metadata.action_type} (Custom detected)`;
+                    sel.add(opt);
+                    sel.value = metadata.action_type;
+                }
+            }
 
             currentItems = items || [];
             renderItemsTable();
@@ -470,17 +493,6 @@
         function updateItemField(index, field, value) {
             if (currentItems[index]) {
                 currentItems[index][field] = value;
-
-                // Auto-detect action type if remarks mention modified or machined
-                if (field === 'remarks') {
-                    const valLower = String(value).toLowerCase();
-                    if (valLower.includes('modifi') || valLower.includes('mod')) {
-                        document.getElementById('meta-action-type').value = 'modified';
-                    } else if (valLower.includes('machin') || valLower.includes('mac')) {
-                        document.getElementById('meta-action-type').value = 'machined';
-                    }
-                }
-
                 renderItemsTable();
                 triggerAutoPreview();
             }
@@ -499,7 +511,7 @@
                 po_qty: '1',
                 uom: 'EA',
                 heat_number: '',
-                remarks: 'MODIFIED AS PER CLIENT SPECIFICATION'
+                remarks: 'FABRICATED / MODIFIED AS PER CLIENT SPECIFICATION'
             });
             renderItemsTable();
             updatePreview();

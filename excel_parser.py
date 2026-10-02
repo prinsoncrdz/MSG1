@@ -111,14 +111,14 @@ def parse_excel_summary(file_path_or_stream, include_all=False):
         if 'TOTAL' in desc.upper() or 'SUMMARY' in desc.upper():
             continue
 
-        # Detect action type from remarks text
+        # Detect multiple actions from remarks text
         rem_lower = remarks.lower()
-        if 'modifi' in rem_lower or 'mod ' in rem_lower or 'mod:' in rem_lower:
-            found_actions.add('modified')
-        elif 'machin' in rem_lower or 'mach ' in rem_lower or 'mac ' in rem_lower:
-            found_actions.add('machined')
-        elif 'fabricat' in rem_lower or 'fab ' in rem_lower or 'plate' in rem_lower:
+        if 'fabricat' in rem_lower or 'plate' in rem_lower or 'make' in rem_lower:
             found_actions.add('fabricated')
+        if 'machin' in rem_lower or 'mac' in rem_lower or 'thread' in rem_lower:
+            found_actions.add('machined')
+        if 'modif' in rem_lower or 'mod' in rem_lower:
+            found_actions.add('modified')
 
         if not include_all and not remarks.strip():
             continue
@@ -133,10 +133,13 @@ def parse_excel_summary(file_path_or_stream, include_all=False):
         }
         items.append(item)
 
-    if 'modified' in found_actions:
-        metadata['action_type'] = 'modified'
-    elif 'machined' in found_actions:
-        metadata['action_type'] = 'machined'
+    ordered_actions = []
+    for act in ['fabricated', 'machined', 'modified']:
+        if act in found_actions:
+            ordered_actions.append(act)
+
+    if ordered_actions:
+        metadata['action_type'] = " / ".join(ordered_actions)
     else:
         metadata['action_type'] = 'fabricated'
 
