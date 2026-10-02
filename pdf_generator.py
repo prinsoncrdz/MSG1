@@ -135,7 +135,7 @@ def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_
     """
     Generates a Letter of Compliance (LOC) PDF based on exact MSG specifications.
     
-    metadata: dict with keys: 'date', 'to_client', 'po_number', 'msg_ref', 'signatory_name', 'signatory_title'
+    metadata: dict with keys: 'date', 'to_client', 'po_number', 'msg_ref', 'signatory_name', 'signatory_title', 'action_type'
     items: list of dicts with keys: 'sl_no', 'description', 'po_qty', 'uom', 'heat_number', 'remarks'
     output_target: file path string OR BytesIO stream
     signature_data: optional custom uploaded signature (base64 URL or file path)
@@ -265,17 +265,30 @@ def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_
     elements.append(title_p)
     elements.append(Spacer(1, 14))
 
-    # 3. Standard Compliance Declaration
+    # 3. Dynamic Action Compliance Declaration (fabricated / modified / machined)
+    action_type = str(metadata.get('action_type', 'fabricated')).lower().strip()
+    
+    if 'modified' in action_type:
+        verb = "modified"
+        noun = "modification"
+    elif 'machined' in action_type:
+        verb = "machined"
+        noun = "machining"
+    else:
+        verb = "fabricated"
+        noun = "fabrication"
+
     statement_text = (
-        "We hereby confirm that below listed items have been fabricated as per the client PO requirements. "
-        "Subsequent to the fabrication, dimensional verification and visual inspection were conducted, "
-        "and the items are found to be acceptable and in full compliance with the applicable standards."
+        f"We hereby confirm that below listed items have been <b>{verb}</b> as per the client PO requirements. "
+        f"Subsequent to the <b>{noun}</b>, dimensional verification and visual inspection were conducted, "
+        f"and the items are found to be acceptable and in full compliance with the applicable standards."
     )
     elements.append(Paragraph(statement_text, body_style))
     elements.append(Spacer(1, 14))
 
     # 4. Table Construction
-    col_w = [48, 180, 45, 40, 70, printable_w - (48 + 180 + 45 + 40 + 70)]
+    # Increased Description column width to 210pt to give ample space for longer descriptions
+    col_w = [40, 210, 40, 35, 60, printable_w - (40 + 210 + 40 + 35 + 60)] # Remarks = ~130.8 pt
 
     table_data = [
         [
@@ -303,8 +316,8 @@ def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('GRID', (0,0), (-1,-1), 0.75, colors.HexColor('#000000')),
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#FFFFFF')),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
         ('LEFTPADDING', (0,0), (-1,-1), 4),
         ('RIGHTPADDING', (0,0), (-1,-1), 4),
     ]))

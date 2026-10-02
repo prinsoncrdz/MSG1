@@ -5,11 +5,8 @@ import datetime
 def parse_excel_summary(file_path_or_stream, include_all=False):
     """
     Parses an Excel summary sheet for LOC generation.
-    Extracts header metadata (Date, Client/TO, PO Number, MSG Ref)
+    Extracts header metadata (Date, Client/TO, PO Number, MSG Ref, Action Type)
     and line items (sl_no, description, po_qty, uom, heat_number, remarks).
-    
-    By default (include_all=False), only items with non-empty Remarks are returned,
-    as LOC (Letter of Compliance) is strictly for modified/fabricated materials.
     """
     wb = openpyxl.load_workbook(file_path_or_stream, data_only=True)
     sheet = wb.active
@@ -20,7 +17,8 @@ def parse_excel_summary(file_path_or_stream, include_all=False):
         "po_number": "",
         "msg_ref": "",
         "signatory_name": "Pradeep Poojary",
-        "signatory_title": "( QA / QC Dept )"
+        "signatory_title": "( QA / QC Dept )",
+        "action_type": "fabricated"
     }
 
     items = []
@@ -89,6 +87,8 @@ def parse_excel_summary(file_path_or_stream, include_all=False):
     col_heat = find_col_idx(['HEAT NUMBER', 'HEAT NO', 'HEAT#'])
     col_rem = find_col_idx(['REMARKS', 'REMARK', 'REMARKS-1', 'REMARKS 1'])
 
+    found_actions = set()
+
     for row in rows[header_idx + 1:]:
         if not row or all(c is None or str(c).strip() == '' for c in row):
             continue
@@ -111,7 +111,15 @@ def parse_excel_summary(file_path_or_stream, include_all=False):
         if 'TOTAL' in desc.upper() or 'SUMMARY' in desc.upper():
             continue
 
-        # Filter out items without remarks unless include_all is requested
+        # Detect action type from remarks text
+        rem_lower = remarks.lower()
+        if 'modifi' in rem_lower or 'mod ' in rem_lower or 'mod:' in rem_lower:
+            found_actions.add('modified')
+        elif 'machin' in rem_lower or 'mach ' in rem_lower or 'mac ' in rem_lower:
+            found_actions.add('machined')
+        elif 'fabricat' in rem_lower or 'fab ' in rem_lower or 'plate' in rem_lower:
+            found_actions.add('fabricated')
+
         if not include_all and not remarks.strip():
             continue
 
@@ -124,5 +132,12 @@ def parse_excel_summary(file_path_or_stream, include_all=False):
             "remarks": remarks
         }
         items.append(item)
+
+    if 'modified' in found_actions:
+        metadata['action_type'] = 'modified'
+    elif 'machined' in found_actions:
+        metadata['action_type'] = 'machined'
+    else:
+        metadata['action_type'] = 'fabricated'
 
     return {"metadata": metadata, "items": items}

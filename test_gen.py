@@ -10,33 +10,18 @@ def main():
         'po_number': 'U-PO003447',
         'msg_ref': 'MSG-0926-2127',
         'signatory_name': 'Pradeep Poojary',
-        'signatory_title': '( QA / QC Dept )'
+        'signatory_title': '( QA / QC Dept )',
+        'action_type': 'modified'
     }
     
     items = [
         {
             'sl_no': '10000',
-            'description': '3/4", SPECTACLE BLIND, 300LB, RF, ASTM A350 Gr.LF2 CL.1, ASME B16.48',
+            'description': '3/4", SPECTACLE BLIND, 300LB, RF, ASTM A350 Gr.LF2 CL.1, ASME B16.48 (MODIFIED AS PER CLIENT REQUIREMENTS WITH EXTRA SPECIFICATIONS)',
             'po_qty': '3',
             'uom': 'EA',
             'heat_number': 'S83305',
             'remarks': 'MADE FROM PLATE THK. 25MM , ASTM A/SA 516 GR.70'
-        },
-        {
-            'sl_no': '20000',
-            'description': '3" x 1/2", THREAD-O-LET, THREADED, CLASS 6000, ASTM A350 GR. LF2 CL.1, MSS SP-97',
-            'po_qty': '2',
-            'uom': 'EA',
-            'heat_number': '7D6P',
-            'remarks': ''
-        },
-        {
-            'sl_no': '30000',
-            'description': '2" x 1/2", THREAD-O-LET, THREADED, CLASS 6000, ASTM A350 GR. LF2 CL.1, MSS SP-97',
-            'po_qty': '1',
-            'uom': 'EA',
-            'heat_number': '7D6P',
-            'remarks': ''
         }
     ]
     

@@ -65,7 +65,7 @@
                     <div>
                         <h3 class="text-xs font-bold text-amber-900">Letter of Compliance (LOC) Rule</h3>
                         <p class="text-xs text-amber-800 mt-0.5">
-                            LOC is strictly generated for **modified/fabricated items** (items with <strong>Remarks</strong>). Standard items without remarks are automatically excluded from the PDF.
+                            LOC is strictly generated for **modified/fabricated/machined items** (items with <strong>Remarks</strong>). Standard items without remarks are automatically excluded from the PDF.
                         </p>
                     </div>
                 </div>
@@ -101,7 +101,7 @@
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                 <h2 class="text-sm font-bold text-slate-900 flex items-center space-x-2 mb-4">
                     <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center">2</span>
-                    <span>Document Header & Signature Details</span>
+                    <span>Document Header & Statement Wording</span>
                 </h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -120,6 +120,23 @@
                         <label class="block text-xs font-semibold text-slate-600 mb-1">MSG Ref</label>
                         <input type="text" id="meta-ref" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="MSG-0926-2127" onchange="triggerAutoPreview()">
                     </div>
+
+                    <!-- Dynamic Top Compliance Statement Action Selector -->
+                    <div class="sm:col-span-2 bg-blue-50/60 p-3 rounded-lg border border-blue-100">
+                        <label class="block text-xs font-bold text-blue-900 mb-1 flex items-center space-x-1.5">
+                            <i class="fa-solid fa-gears text-blue-600"></i>
+                            <span>Process / Action Wording for Top Statement</span>
+                        </label>
+                        <select id="meta-action-type" class="w-full text-xs px-3 py-2 border border-blue-300 rounded-md font-semibold text-blue-950 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" onchange="triggerAutoPreview()">
+                            <option value="fabricated">Fabricated (Statement: "...items have been fabricated as per PO requirements...")</option>
+                            <option value="modified">Modified (Statement: "...items have been modified as per PO requirements...")</option>
+                            <option value="machined">Machined (Statement: "...items have been machined as per PO requirements...")</option>
+                        </select>
+                        <p class="text-[11px] text-blue-700 mt-1">
+                            Selecting <strong>Modified</strong> updates top statement to: <em>"We hereby confirm that below listed items have been modified..."</em>
+                        </p>
+                    </div>
+
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Signatory Name</label>
                         <input type="text" id="meta-sig-name" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" value="Pradeep Poojary" onchange="triggerAutoPreview()">
@@ -161,7 +178,7 @@
                             <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center">3</span>
                             <span>Line Items Editor</span>
                         </h2>
-                        <p class="text-[11px] text-slate-500 mt-0.5">Only items with Remarks will be included on the LOC PDF</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Description is expanded for adding extra details when modified</p>
                     </div>
                     <div class="flex items-center space-x-3">
                         <div class="flex items-center space-x-1.5 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
@@ -176,17 +193,17 @@
                 </div>
 
                 <!-- Scrollable Table -->
-                <div class="overflow-x-auto border border-slate-200 rounded-lg custom-scrollbar max-h-[420px]">
-                    <table class="w-full text-left text-xs border-collapse">
+                <div class="overflow-x-auto border border-slate-200 rounded-lg custom-scrollbar max-h-[440px]">
+                    <table class="w-full text-left text-xs border-collapse min-w-[700px]">
                         <thead class="bg-slate-100 text-slate-700 font-semibold sticky top-0 z-10">
                             <tr>
-                                <th class="p-2 border-b w-16 text-center">Sl.No</th>
-                                <th class="p-2 border-b">Description</th>
-                                <th class="p-2 border-b w-16 text-center">PO Qty</th>
-                                <th class="p-2 border-b w-16 text-center">UOM</th>
-                                <th class="p-2 border-b w-24 text-center">Heat No.</th>
-                                <th class="p-2 border-b">Remarks (LOC Modification)</th>
-                                <th class="p-2 border-b w-12 text-center">Action</th>
+                                <th class="p-2 border-b w-14 text-center">Sl.No</th>
+                                <th class="p-2 border-b w-64 min-w-[220px]">Description (Expanded)</th>
+                                <th class="p-2 border-b w-14 text-center">PO Qty</th>
+                                <th class="p-2 border-b w-14 text-center">UOM</th>
+                                <th class="p-2 border-b w-20 text-center">Heat No.</th>
+                                <th class="p-2 border-b min-w-[180px]">Remarks (Modification Details)</th>
+                                <th class="p-2 border-b w-10 text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody id="items-table-body" class="divide-y divide-slate-200">
@@ -346,7 +363,8 @@
                 po_number: 'U-PO003447',
                 msg_ref: 'MSG-0926-2127',
                 signatory_name: 'Pradeep Poojary',
-                signatory_title: '( QA / QC Dept )'
+                signatory_title: '( QA / QC Dept )',
+                action_type: 'modified'
             };
 
             const sampleItems = [
@@ -392,6 +410,7 @@
             document.getElementById('meta-ref').value = metadata.msg_ref || '';
             document.getElementById('meta-sig-name').value = metadata.signatory_name || 'Pradeep Poojary';
             document.getElementById('meta-sig-title').value = metadata.signatory_title || '( QA / QC Dept )';
+            document.getElementById('meta-action-type').value = metadata.action_type || 'modified';
 
             currentItems = items || [];
             renderItemsTable();
@@ -418,22 +437,22 @@
                 tr.className = `hover:bg-slate-50 transition border-b border-slate-100 ${!hasRemark ? 'bg-amber-50/40 opacity-75' : ''}`;
                 tr.innerHTML = `
                     <td class="p-1.5 text-center">
-                        <input type="text" value="${escapeHtml(item.sl_no)}" onchange="updateItemField(${index}, 'sl_no', this.value)" class="w-full text-center px-1 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                        <input type="text" value="${escapeHtml(item.sl_no)}" onchange="updateItemField(${index}, 'sl_no', this.value)" class="w-full text-center px-1 py-1.5 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
                     </td>
                     <td class="p-1.5">
-                        <input type="text" value="${escapeHtml(item.description)}" onchange="updateItemField(${index}, 'description', this.value)" class="w-full px-2 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                        <textarea rows="2" onchange="updateItemField(${index}, 'description', this.value)" placeholder="Enter full description..." class="w-full px-2 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 text-xs resize-y font-medium text-slate-900">${escapeHtml(item.description)}</textarea>
                     </td>
                     <td class="p-1.5 text-center">
-                        <input type="text" value="${escapeHtml(item.po_qty)}" onchange="updateItemField(${index}, 'po_qty', this.value)" class="w-full text-center px-1 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                        <input type="text" value="${escapeHtml(item.po_qty)}" onchange="updateItemField(${index}, 'po_qty', this.value)" class="w-full text-center px-1 py-1.5 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
                     </td>
                     <td class="p-1.5 text-center">
-                        <input type="text" value="${escapeHtml(item.uom)}" onchange="updateItemField(${index}, 'uom', this.value)" class="w-full text-center px-1 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                        <input type="text" value="${escapeHtml(item.uom)}" onchange="updateItemField(${index}, 'uom', this.value)" class="w-full text-center px-1 py-1.5 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
                     </td>
                     <td class="p-1.5 text-center">
-                        <input type="text" value="${escapeHtml(item.heat_number)}" onchange="updateItemField(${index}, 'heat_number', this.value)" class="w-full text-center px-1 py-1 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
+                        <input type="text" value="${escapeHtml(item.heat_number)}" onchange="updateItemField(${index}, 'heat_number', this.value)" class="w-full text-center px-1 py-1.5 border border-slate-200 rounded focus:ring-1 focus:ring-blue-500">
                     </td>
                     <td class="p-1.5">
-                        <input type="text" value="${escapeHtml(item.remarks)}" onchange="updateItemField(${index}, 'remarks', this.value)" placeholder="Enter modification remark..." class="w-full px-2 py-1 border ${hasRemark ? 'border-emerald-400 bg-emerald-50/30 font-medium' : 'border-slate-300'} rounded focus:ring-1 focus:ring-blue-500 text-slate-800">
+                        <textarea rows="2" onchange="updateItemField(${index}, 'remarks', this.value)" placeholder="Enter modification remark..." class="w-full px-2 py-1 border ${hasRemark ? 'border-emerald-400 bg-emerald-50/30 font-medium' : 'border-slate-300'} rounded focus:ring-1 focus:ring-blue-500 text-xs resize-y text-slate-800">${escapeHtml(item.remarks)}</textarea>
                     </td>
                     <td class="p-1.5 text-center">
                         <button onclick="deleteItem(${index})" title="Delete Item" class="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded transition">
@@ -451,6 +470,17 @@
         function updateItemField(index, field, value) {
             if (currentItems[index]) {
                 currentItems[index][field] = value;
+
+                // Auto-detect action type if remarks mention modified or machined
+                if (field === 'remarks') {
+                    const valLower = String(value).toLowerCase();
+                    if (valLower.includes('modifi') || valLower.includes('mod')) {
+                        document.getElementById('meta-action-type').value = 'modified';
+                    } else if (valLower.includes('machin') || valLower.includes('mac')) {
+                        document.getElementById('meta-action-type').value = 'machined';
+                    }
+                }
+
                 renderItemsTable();
                 triggerAutoPreview();
             }
@@ -469,7 +499,7 @@
                 po_qty: '1',
                 uom: 'EA',
                 heat_number: '',
-                remarks: 'FABRICATED / MODIFIED AS PER CLIENT REQ'
+                remarks: 'MODIFIED AS PER CLIENT SPECIFICATION'
             });
             renderItemsTable();
             updatePreview();
@@ -488,7 +518,8 @@
                     po_number: document.getElementById('meta-po').value,
                     msg_ref: document.getElementById('meta-ref').value,
                     signatory_name: document.getElementById('meta-sig-name').value,
-                    signatory_title: document.getElementById('meta-sig-title').value
+                    signatory_title: document.getElementById('meta-sig-title').value,
+                    action_type: document.getElementById('meta-action-type').value
                 },
                 items: currentItems,
                 filter_empty_remarks: document.getElementById('chk-filter-empty').checked,
