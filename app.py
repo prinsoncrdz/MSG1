@@ -30,7 +30,7 @@ def login_required(f):
 def login():
     if session.get('user_logged_in'):
         return redirect(url_for('index'))
-    return render_template('login.html', email=DEFAULT_USER_EMAIL, password=AUTO_GENERATED_PASSWORD)
+    return render_template('login.html', email=DEFAULT_USER_EMAIL)
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
@@ -43,7 +43,7 @@ def api_login():
         session['user_email'] = DEFAULT_USER_EMAIL
         return jsonify({'success': True, 'redirect': '/'})
     else:
-        return jsonify({'success': False, 'error': 'Invalid credentials. Use info@msgoilfield.com and the generated password.'}), 401
+        return jsonify({'success': False, 'error': 'Invalid email or password.'}), 401
 
 @app.route('/logout')
 def logout():
@@ -173,7 +173,6 @@ if __name__ == '__main__':
     print("=" * 60)
     print("MSG OILFIELD EQUIPMENT TRADING LLC - LOC GENERATOR")
     print(f"Login Email: {DEFAULT_USER_EMAIL}")
-    print(f"Auto-generated Password: {AUTO_GENERATED_PASSWORD}")
     print(f"Server URL: http://localhost:{args.port}")
     print("=" * 60)
 
