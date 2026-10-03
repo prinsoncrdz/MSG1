@@ -12,7 +12,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'msg-oilfield-loc-secret-key-2026')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload
 
+# Strong production login credentials
 DEFAULT_USER_EMAIL = "info@msgoilfield.com"
+STRONG_PASSWORD = os.environ.get('MSG_PASSWORD', 'MSG@Oilfield#2026!')
 
 def login_required(f):
     @wraps(f)
@@ -33,12 +35,15 @@ def login():
 @app.route('/api/login', methods=['POST'])
 def api_login():
     data = request.get_json() or {}
-    email = data.get('email', '').strip() or DEFAULT_USER_EMAIL
-    
-    # Simple 1-click seamless login
-    session['user_logged_in'] = True
-    session['user_email'] = email
-    return jsonify({'success': True, 'redirect': '/'})
+    email = data.get('email', '').strip()
+    password = data.get('password', '').strip()
+
+    if email.lower() == DEFAULT_USER_EMAIL.lower() and password == STRONG_PASSWORD:
+        session['user_logged_in'] = True
+        session['user_email'] = DEFAULT_USER_EMAIL
+        return jsonify({'success': True, 'redirect': '/'})
+    else:
+        return jsonify({'success': False, 'error': 'Invalid email or password.'}), 401
 
 @app.route('/logout')
 def logout():
