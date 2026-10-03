@@ -1,6 +1,6 @@
 import unittest
 import json
-from app import app, DEFAULT_USER_EMAIL, AUTO_GENERATED_PASSWORD
+from app import app, DEFAULT_USER_EMAIL, STRONG_PASSWORD
 
 class AppTestCase(unittest.TestCase):
     def setUp(self):
@@ -16,7 +16,7 @@ class AppTestCase(unittest.TestCase):
         # 2. Login with valid credentials
         login_res = self.app.post('/api/login', data=json.dumps({
             'email': DEFAULT_USER_EMAIL,
-            'password': AUTO_GENERATED_PASSWORD
+            'password': STRONG_PASSWORD
         }), content_type='application/json')
         self.assertEqual(login_res.status_code, 200)
         self.assertTrue(json.loads(login_res.data)['success'])
@@ -30,7 +30,7 @@ class AppTestCase(unittest.TestCase):
         # Log in first
         self.app.post('/api/login', data=json.dumps({
             'email': DEFAULT_USER_EMAIL,
-            'password': AUTO_GENERATED_PASSWORD
+            'password': STRONG_PASSWORD
         }), content_type='application/json')
 
         payload = {
