@@ -1,7 +1,7 @@
 import os
 import io
 import base64
-import re
+import fitz # PyMuPDF
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
@@ -14,8 +14,8 @@ from PIL import Image as PILImage
 
 class NumberedCanvas(canvas.Canvas):
     """
-    Two-pass canvas to draw official MSG Letterhead header, footer,
-    and page numbers spanning FULL PAGE WIDTH (edge-to-edge).
+    Two-pass canvas to draw page numbers and optional fallback decorations
+    preserving strict original aspect ratio (NEVER stretched).
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -38,59 +38,47 @@ class NumberedCanvas(canvas.Canvas):
         page_w, page_h = A4
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        header_path = os.path.join(script_dir, 'assets', 'msg_header.png')
-        footer_path = os.path.join(script_dir, 'assets', 'msg_footer.png')
+        template_pdf = os.path.join(script_dir, 'assets', 'letterhead_template.pdf')
+        
+        # If vector template is missing, fallback to drawing un-stretched raster images
+        if not os.path.exists(template_pdf):
+            header_path = os.path.join(script_dir, 'assets', 'msg_header.png')
+            footer_path = os.path.join(script_dir, 'assets', 'msg_footer.png')
 
-        # 1. Top Header Banner - FULL PAGE WIDTH (x=0, width=page_w)
-        if os.path.exists(header_path):
-            try:
-                self.drawImage(
-                    header_path,
-                    x=0,
-                    y=page_h - 40 * mm,
-                    width=page_w,
-                    height=40 * mm,
-                    preserveAspectRatio=False,
-                    mask='auto'
-                )
-            except Exception as e:
-                print("Header draw warning:", e)
+            if os.path.exists(header_path):
+                try:
+                    # PRESERVE ASPECT RATIO STRICTLY
+                    self.drawImage(
+                        header_path,
+                        x=10 * mm,
+                        y=page_h - 38 * mm,
+                        width=page_w - 20 * mm,
+                        height=30 * mm,
+                        preserveAspectRatio=True,
+                        mask='auto'
+                    )
+                except Exception as e:
+                    print("Header draw warning:", e)
 
-        # 2. Bottom Footer Banner - FULL PAGE WIDTH (x=0, width=page_w)
-        if os.path.exists(footer_path):
-            try:
-                self.drawImage(
-                    footer_path,
-                    x=0,
-                    y=0,
-                    width=page_w,
-                    height=26 * mm,
-                    preserveAspectRatio=False,
-                    mask='auto'
-                )
-            except Exception as e:
-                print("Footer draw warning:", e)
-        else:
-            # Fallback text footer if image missing
-            footer_y = 10 * mm
-            self.setStrokeColor(colors.HexColor("#003399"))
-            self.setLineWidth(1.5)
-            self.line(0, footer_y + 12 * mm, page_w, footer_y + 12 * mm)
+            if os.path.exists(footer_path):
+                try:
+                    self.drawImage(
+                        footer_path,
+                        x=10 * mm,
+                        y=6 * mm,
+                        width=page_w - 20 * mm,
+                        height=20 * mm,
+                        preserveAspectRatio=True,
+                        mask='auto'
+                    )
+                except Exception as e:
+                    print("Footer draw warning:", e)
 
-            self.setFont("Helvetica", 8)
-            self.setFillColor(colors.HexColor("#333333"))
-            
-            contact_line = "☎ +971 4 295 1222    |    ✉ sales@msgoilfield.com    |    🌐 www.msgoilfield.com"
-            address_line = "Dubai Industrial City Phase-1, Saih Shuaib 2, Warehouse No:J-04, Dubai, UAE."
-
-            self.drawCentredString(page_w / 2.0, footer_y + 6 * mm, contact_line)
-            self.drawCentredString(page_w / 2.0, footer_y + 2 * mm, address_line)
-
-        # Page Number (bottom right)
+        # Page Number (bottom right) if multi-page
         if page_count > 1:
             self.setFont("Helvetica", 7.5)
             self.setFillColor(colors.HexColor("#666666"))
-            self.drawRightString(page_w - 12 * mm, 4 * mm, f"Page {self._pageNumber} of {page_count}")
+            self.drawRightString(page_w - 14 * mm, 5 * mm, f"Page {self._pageNumber} of {page_count}")
 
         self.restoreState()
 
@@ -135,21 +123,16 @@ def parse_image_data(img_data_str_or_bytes):
 def build_compliance_wording(action_type):
     """
     Builds dynamic verb and noun combinations for the compliance statement.
-    Handles combinations like:
-    - 'fabricated' -> verb: 'fabricated', noun: 'fabrication'
-    - 'fabricated / machined' -> verb: 'fabricated / machined', noun: 'fabrication / machining'
-    - 'fabricated / machined / modified' -> verb: 'fabricated / machined / modified', noun: 'fabrication / machining / modification'
     """
     action_str = str(action_type or 'fabricated').lower()
 
     verbs = []
     nouns = []
 
-    # Preserve order: fabricated, machined, modified
-    if 'fabricat' in action_str or 'make' in action_str:
+    if 'fabricat' in action_str or 'make' in action_str or 'plate' in action_str:
         verbs.append('fabricated')
         nouns.append('fabrication')
-    if 'machin' in action_str or 'mac' in action_str:
+    if 'machin' in action_str or 'mac' in action_str or 'thread' in action_str:
         verbs.append('machined')
         nouns.append('machining')
     if 'modif' in action_str or 'mod' in action_str:
@@ -166,18 +149,62 @@ def build_compliance_wording(action_type):
     return verb_text, noun_text
 
 
+def apply_vector_letterhead_overlay(raw_pdf_bytes_or_path, output_target):
+    """
+    Overlays the original vector MSG letterhead PDF template onto every page
+    of the generated document. Guarantees 100% crisp, professional, un-stretched letterhead.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    template_pdf_path = os.path.join(script_dir, 'assets', 'letterhead_template.pdf')
+
+    if not os.path.exists(template_pdf_path):
+        # If template missing, write raw PDF as is
+        if isinstance(output_target, str):
+            with open(output_target, 'wb') as f:
+                f.write(raw_pdf_bytes_or_path if isinstance(raw_pdf_bytes_or_path, bytes) else raw_pdf_bytes_or_path.getvalue())
+        elif hasattr(output_target, 'write'):
+            output_target.write(raw_pdf_bytes_or_path if isinstance(raw_pdf_bytes_or_path, bytes) else raw_pdf_bytes_or_path.getvalue())
+        return
+
+    # Load vector template and generated content
+    doc_template = fitz.open(template_pdf_path)
+    
+    if isinstance(raw_pdf_bytes_or_path, bytes):
+        doc_content = fitz.open(stream=raw_pdf_bytes_or_path, filetype="pdf")
+    elif isinstance(raw_pdf_bytes_or_path, str):
+        doc_content = fitz.open(raw_pdf_bytes_or_path)
+    else:
+        doc_content = fitz.open(stream=raw_pdf_bytes_or_path.getvalue(), filetype="pdf")
+
+    final_doc = fitz.open()
+
+    for page_idx in range(len(doc_content)):
+        page_rect = fitz.Rect(0, 0, 595.27, 841.89) # A4 size in points
+        new_page = final_doc.new_page(width=595.27, height=841.89)
+        
+        # 1. Overlay original vector letterhead graphics
+        new_page.show_pdf_page(page_rect, doc_template, 0)
+        
+        # 2. Overlay document text content
+        new_page.show_pdf_page(page_rect, doc_content, page_idx)
+
+    # Save to output_target
+    if isinstance(output_target, str):
+        final_doc.save(output_target)
+    elif hasattr(output_target, 'write'):
+        final_bytes = final_doc.write()
+        output_target.write(final_bytes)
+
+
 def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_data=None):
     """
     Generates a Letter of Compliance (LOC) PDF based on exact MSG specifications.
-    
-    metadata: dict with keys: 'date', 'to_client', 'po_number', 'msg_ref', 'signatory_name', 'signatory_title', 'action_type'
-    items: list of dicts with keys: 'sl_no', 'description', 'po_qty', 'uom', 'heat_number', 'remarks'
-    output_target: file path string OR BytesIO stream
-    signature_data: optional custom uploaded signature (base64 URL or file path)
-    stamp_data: optional custom uploaded stamp (base64 URL or file path)
+    Uses vector letterhead overlay for 100% professional un-stretched output.
     """
+    content_buffer = io.BytesIO()
+
     doc = SimpleDocTemplate(
-        output_target,
+        content_buffer,
         pagesize=A4,
         leftMargin=14 * mm,
         rightMargin=14 * mm,
@@ -300,7 +327,7 @@ def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_
     elements.append(title_p)
     elements.append(Spacer(1, 14))
 
-    # 3. Dynamic Action Compliance Declaration (supports combined fabricated / machined / modified)
+    # 3. Dynamic Action Compliance Declaration
     action_type = metadata.get('action_type', 'fabricated')
     verb_text, noun_text = build_compliance_wording(action_type)
 
@@ -403,5 +430,10 @@ def generate_loc_pdf(metadata, items, output_target, signature_data=None, stamp_
 
     elements.append(KeepTogether(sig_elements))
 
+    # Build intermediate ReportLab content PDF
     doc.build(elements, canvasmaker=NumberedCanvas)
+
+    # Overlay vector letterhead onto generated content
+    content_buffer.seek(0)
+    apply_vector_letterhead_overlay(content_buffer, output_target)
     return True
