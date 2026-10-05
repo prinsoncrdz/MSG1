@@ -164,6 +164,78 @@ def preview_pdf():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+from cloudinary_storage import (
+    is_cloudinary_configured,
+    save_summary_backup,
+    search_summary_backups,
+    restore_summary_backup,
+    delete_summary_backup
+)
+
+@app.route('/api/backups/status', methods=['GET'])
+@login_required
+def backup_status():
+    return jsonify({
+        'success': True,
+        'cloudinary_configured': is_cloudinary_configured()
+    })
+
+@app.route('/api/backups/save', methods=['POST'])
+@login_required
+def save_backup_endpoint():
+    req_data = request.get_json() or {}
+    metadata = req_data.get('metadata', {})
+    items = req_data.get('items', [])
+    pdf_b64 = req_data.get('pdf_b64', None)
+
+    if not metadata or not items:
+        return jsonify({'success': False, 'error': 'Metadata and items are required to save a backup'}), 400
+
+    try:
+        user_email = session.get('user_email', DEFAULT_USER_EMAIL)
+        res = save_summary_backup(metadata, items, user_email=user_email, pdf_b64=pdf_b64)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/backups/search', methods=['GET'])
+@login_required
+def search_backups_endpoint():
+    query = request.args.get('query', '')
+    try:
+        results = search_summary_backups(query)
+        return jsonify({
+            'success': True,
+            'query': query,
+            'count': len(results),
+            'backups': results,
+            'cloudinary_configured': is_cloudinary_configured()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/backups/restore/<path:backup_id>', methods=['GET'])
+@login_required
+def restore_backup_endpoint(backup_id):
+    try:
+        data = restore_summary_backup(backup_id)
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
+
+@app.route('/api/backups/delete/<path:backup_id>', methods=['DELETE'])
+@login_required
+def delete_backup_endpoint(backup_id):
+    try:
+        res = delete_summary_backup(backup_id)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="LOC PDF Generator Web Server")
     parser.add_argument('--port', type=int, default=int(os.environ.get('PORT', 5050)), help="Port to run the server on (default: 5050)")

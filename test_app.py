@@ -60,5 +60,64 @@ class AppTestCase(unittest.TestCase):
         self.assertTrue(data['success'])
         self.assertIn('page_images', data)
 
+    def test_backups_flow(self):
+        # Log in first
+        self.app.post('/api/login', data=json.dumps({
+            'email': DEFAULT_USER_EMAIL,
+            'password': STRONG_PASSWORD
+        }), content_type='application/json')
+
+        # 1. Check backup status
+        status_res = self.app.get('/api/backups/status')
+        self.assertEqual(status_res.status_code, 200)
+        self.assertTrue(json.loads(status_res.data)['success'])
+
+        # 2. Save backup
+        payload = {
+            'metadata': {
+                'date': '05/10/2026',
+                'to_client': 'Cloud Backup Test Client',
+                'po_number': 'U-PO-CLOUD-999',
+                'msg_ref': 'MSG-REF-CLOUD',
+                'signatory_name': 'Pradeep Poojary',
+                'signatory_title': '( QA / QC Dept )',
+                'action_type': 'fabricated / machined'
+            },
+            'items': [
+                {
+                    'sl_no': '1',
+                    'description': 'Cloud Backup Spec Flange',
+                    'po_qty': '5',
+                    'uom': 'PCS',
+                    'heat_number': 'HT-CLOUD-01',
+                    'remarks': 'MADE FROM FORGING'
+                }
+            ]
+        }
+        save_res = self.app.post('/api/backups/save', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(save_res.status_code, 200)
+        save_data = json.loads(save_res.data)
+        self.assertTrue(save_data['success'])
+        backup_id = save_data['backup_id']
+
+        # 3. Search backup
+        search_res = self.app.get('/api/backups/search?query=CLOUD-999')
+        self.assertEqual(search_res.status_code, 200)
+        search_data = json.loads(search_res.data)
+        self.assertTrue(search_data['success'])
+        self.assertGreaterEqual(search_data['count'], 1)
+
+        # 4. Restore backup
+        restore_res = self.app.get(f'/api/backups/restore/{backup_id}')
+        self.assertEqual(restore_res.status_code, 200)
+        restore_data = json.loads(restore_res.data)
+        self.assertTrue(restore_data['success'])
+        self.assertEqual(restore_data['data']['po_number'], 'U-PO-CLOUD-999')
+
+        # 5. Delete backup
+        del_res = self.app.delete(f'/api/backups/delete/{backup_id}')
+        self.assertEqual(del_res.status_code, 200)
+        self.assertTrue(json.loads(del_res.data)['success'])
+
 if __name__ == '__main__':
     unittest.main()

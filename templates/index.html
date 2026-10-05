@@ -46,9 +46,17 @@
                     <i class="fa-solid fa-user-circle text-blue-400"></i>
                     <span>{{ user_email }}</span>
                 </div>
+                <button onclick="openBackupsModal()" class="px-3 py-1.5 text-xs font-medium text-blue-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition flex items-center space-x-1.5" title="Search & Manage Cloud / Local Backups">
+                    <i class="fa-solid fa-cloud text-blue-400"></i>
+                    <span>Cloud Backups</span>
+                </button>
+                <button onclick="saveCurrentToCloud()" class="px-3 py-1.5 text-xs font-medium text-emerald-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition flex items-center space-x-1.5" title="Backup Current Summary Sheet to Cloud">
+                    <i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i>
+                    <span>Backup Sheet</span>
+                </button>
                 <button onclick="loadSampleData()" class="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition flex items-center space-x-1.5">
                     <i class="fa-solid fa-file-excel text-emerald-400"></i>
-                    <span>Load Sample Data</span>
+                    <span>Load Sample</span>
                 </button>
                 <button onclick="downloadPDF()" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow transition flex items-center space-x-1.5">
                     <i class="fa-solid fa-download"></i>
@@ -657,6 +665,260 @@
         window.addEventListener('DOMContentLoaded', () => {
             loadSampleData();
         });
+
+        // ==========================================
+        // Cloudinary & Storage Backup Functions
+        // ==========================================
+        function openBackupsModal() {
+            document.getElementById('backups-modal').classList.remove('hidden');
+            performBackupSearch('');
+        }
+
+        function closeBackupsModal() {
+            document.getElementById('backups-modal').classList.add('hidden');
+        }
+
+        function saveCurrentToCloud() {
+            const payload = getPayload();
+            const poNum = payload.metadata.po_number || 'Sheet';
+            
+            const btn = event ? event.target.closest('button') : null;
+            let origHtml = '';
+            if (btn) {
+                origHtml = btn.innerHTML;
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Saving...</span>`;
+                btn.disabled = true;
+            }
+
+            fetch('/api/backups/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (btn) {
+                    btn.innerHTML = origHtml;
+                    btn.disabled = false;
+                }
+                if (data.success) {
+                    let cloudNotice = data.cloudinary_status === 'saved' 
+                        ? '☁️ Synced to Cloudinary!' 
+                        : '💾 Saved to local backups.';
+                    alert(`Backup Successful!\nPO Number: ${data.po_number}\n${cloudNotice}\nSaved At: ${data.saved_at}`);
+                } else {
+                    alert('Backup Error: ' + (data.error || 'Failed to save backup'));
+                }
+            })
+            .catch(err => {
+                if (btn) {
+                    btn.innerHTML = origHtml;
+                    btn.disabled = false;
+                }
+                alert('Backup Failed: ' + err.message);
+            });
+        }
+
+        function performBackupSearch(queryOverride = null) {
+            const query = queryOverride !== null ? queryOverride : (document.getElementById('backup-search-input').value || '');
+            const tbody = document.getElementById('backups-list-body');
+            const statusBadge = document.getElementById('cloudinary-status-badge');
+            
+            tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-xs text-slate-500"><i class="fa-solid fa-spinner fa-spin text-blue-600 text-lg mb-2"></i><br>Searching backups...</td></tr>`;
+
+            fetch(`/api/backups/search?query=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.cloudinary_configured) {
+                    statusBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200';
+                    statusBadge.innerHTML = `<i class="fa-solid fa-cloud text-emerald-600 mr-1"></i>Cloudinary Active`;
+                } else {
+                    statusBadge.className = 'px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200';
+                    statusBadge.innerHTML = `<i class="fa-solid fa-hard-drive text-amber-600 mr-1"></i>Local Backup Mode (Set CLOUDINARY_URL for Cloud Sync)`;
+                }
+
+                if (!data.success || !data.backups || data.backups.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-xs text-slate-400"><i class="fa-solid fa-folder-open text-2xl mb-2 text-slate-300"></i><br>No matching summary sheet backups found. Click "Backup Sheet" to create one.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                data.backups.forEach(b => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50 border-b border-slate-100 text-xs text-slate-700';
+                    
+                    const srcBadge = b.source === 'cloudinary' 
+                        ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800"><i class="fa-solid fa-cloud mr-1 text-blue-600"></i>Cloud</span>`
+                        : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700"><i class="fa-solid fa-hard-drive mr-1 text-slate-500"></i>Local</span>`;
+
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-bold text-slate-900">${b.po_number || 'N/A'}</td>
+                        <td class="px-4 py-3">${b.client || 'N/A'}</td>
+                        <td class="px-4 py-3 font-mono text-[11px] text-slate-600">${b.date || b.msg_ref || '-'}</td>
+                        <td class="px-4 py-3 text-center font-medium">${b.item_count || '-'}</td>
+                        <td class="px-4 py-3 text-[11px] text-slate-500">${b.saved_at} ${srcBadge}</td>
+                        <td class="px-4 py-3 text-right space-x-1">
+                            <button onclick="restoreBackupToEditor('${b.backup_id}')" class="px-2.5 py-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded transition shadow-sm" title="Load into Editor">
+                                <i class="fa-solid fa-rotate-left mr-1"></i>Restore
+                            </button>
+                            <button onclick="deleteBackup('${b.backup_id}')" class="px-2 py-1 text-[11px] font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition" title="Delete Backup">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-xs text-red-600">Failed to load backups: ${err.message}</td></tr>`;
+            });
+        }
+
+        function restoreBackupToEditor(backupId) {
+            fetch(`/api/backups/restore/${encodeURIComponent(backupId)}`)
+            .then(res => res.json())
+            .then(resData => {
+                if (!resData.success || !resData.data) {
+                    alert('Failed to restore backup: ' + (resData.error || 'Invalid data'));
+                    return;
+                }
+
+                const bData = resData.data;
+                const meta = bData.metadata || {};
+                const items = bData.items || [];
+
+                // Update metadata fields
+                document.getElementById('meta-date').value = meta.date || bData.date || '';
+                document.getElementById('meta-client').value = meta.to_client || bData.client || '';
+                document.getElementById('meta-po').value = meta.po_number || bData.po_number || '';
+                document.getElementById('meta-ref').value = meta.msg_ref || bData.msg_ref || '';
+                document.getElementById('meta-sig-name').value = meta.signatory_name || 'Pradeep Poojary';
+                document.getElementById('meta-sig-title').value = meta.signatory_title || '( QA / QC Dept )';
+                
+                if (meta.action_type) {
+                    document.getElementById('meta-action-type').value = meta.action_type;
+                }
+
+                // Update items in editor table
+                const tbody = document.getElementById('items-body');
+                tbody.innerHTML = '';
+                items.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-slate-100 hover:bg-slate-50 text-xs text-slate-700';
+                    row.setAttribute('data-index', index);
+
+                    row.innerHTML = `
+                        <td class="px-2 py-2.5 font-medium text-slate-500 text-center">${item.sl_no || (index + 1)}</td>
+                        <td class="px-2 py-2.5">
+                            <textarea class="w-full text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 custom-scrollbar focus:outline-none" rows="2" onchange="triggerAutoPreview()">${item.description || ''}</textarea>
+                        </td>
+                        <td class="px-2 py-2.5">
+                            <input type="text" class="w-full text-xs p-1 border border-slate-300 rounded text-center focus:ring-1 focus:ring-blue-500 focus:outline-none" value="${item.po_qty || ''}" onchange="triggerAutoPreview()">
+                        </td>
+                        <td class="px-2 py-2.5">
+                            <input type="text" class="w-full text-xs p-1 border border-slate-300 rounded text-center focus:ring-1 focus:ring-blue-500 focus:outline-none" value="${item.uom || ''}" onchange="triggerAutoPreview()">
+                        </td>
+                        <td class="px-2 py-2.5">
+                            <input type="text" class="w-full text-xs p-1 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-none" value="${item.heat_number || ''}" onchange="triggerAutoPreview()">
+                        </td>
+                        <td class="px-2 py-2.5 bg-amber-50/40">
+                            <textarea class="w-full text-xs p-1.5 border border-amber-300 rounded focus:ring-1 focus:ring-amber-500 custom-scrollbar font-medium text-amber-950 focus:outline-none" rows="2" placeholder="e.g. MADE FROM PLATE THK. 25MM" onchange="handleRemarkChange(this)">${item.remarks || ''}</textarea>
+                        </td>
+                        <td class="px-2 py-2.5 text-center">
+                            <button onclick="removeRow(this)" class="text-slate-400 hover:text-red-600 p-1" title="Delete Item">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                closeBackupsModal();
+                triggerAutoPreview();
+                alert(`Loaded summary sheet backup for PO: ${bData.po_number} into editor.`);
+            })
+            .catch(err => {
+                alert('Failed to restore backup: ' + err.message);
+            });
+        }
+
+        function deleteBackup(backupId) {
+            if (!confirm(`Are you sure you want to delete backup '${backupId}'?`)) return;
+
+            fetch(`/api/backups/delete/${encodeURIComponent(backupId)}`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    performBackupSearch();
+                } else {
+                    alert('Delete failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Delete error: ' + err.message));
+        }
     </script>
+
+    <!-- Cloud Storage & Search Modal -->
+    <div id="backups-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-4xl rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
+            
+            <!-- Modal Header -->
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-lg bg-blue-600/30 text-blue-400 flex items-center justify-center border border-blue-500/40">
+                        <i class="fa-solid fa-cloud text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white leading-tight">Cloud Storage & Summary Sheet Backups</h3>
+                        <p class="text-[11px] text-slate-400">Search past summary sheets, restore data to editor, or save cloud backups</p>
+                    </div>
+                </div>
+                <button onclick="closeBackupsModal()" class="text-slate-400 hover:text-white text-lg p-1.5 rounded-lg hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Subheader / Search Bar -->
+            <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="relative w-full sm:w-96">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="text" id="backup-search-input" class="w-full text-xs pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Search by PO Number, Client, Date, MSG Ref..." onkeyup="if(event.key==='Enter') performBackupSearch()">
+                </div>
+                <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                    <span id="cloudinary-status-badge" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-200 text-slate-700">Checking status...</span>
+                    <button onclick="saveCurrentToCloud()" class="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Backup Current Sheet</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Backups Table -->
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-[11px] font-bold text-slate-600 text-left uppercase border-b border-slate-200">
+                            <th class="px-4 py-2.5">PO Number</th>
+                            <th class="px-4 py-2.5">Client Name</th>
+                            <th class="px-4 py-2.5">Date / Ref</th>
+                            <th class="px-4 py-2.5 text-center">Items</th>
+                            <th class="px-4 py-2.5">Saved At / Source</th>
+                            <th class="px-4 py-2.5 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="backups-list-body">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="bg-slate-50 border-t border-slate-200 px-6 py-3 flex justify-between items-center text-xs text-slate-500">
+                <span class="text-[11px]">Note: Cloudinary cloud backups sync automatically when credentials are configured.</span>
+                <button onclick="closeBackupsModal()" class="px-4 py-1.5 font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg transition">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
+

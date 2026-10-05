@@ -4,3 +4,4 @@ __pycache__/
 test_loc.pdf
 test_loc_page1.png
 *.log
+backups_store/
