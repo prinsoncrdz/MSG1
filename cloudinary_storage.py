@@ -15,10 +15,25 @@ except ImportError:
 
 LOCAL_BACKUP_DIR = os.path.join(os.path.dirname(__file__), 'backups_store')
 
+def _load_env_file():
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.exists(env_path):
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, val = line.split('=', 1)
+                    key = key.strip()
+                    val = val.strip().strip('"').strip("'")
+                    if key not in os.environ:
+                        os.environ[key] = val
+
 def is_cloudinary_configured():
     """Return True if Cloudinary environment variables are set and package is available."""
     if not CLOUDINARY_AVAILABLE:
         return False
+    
+    _load_env_file()
     
     url = os.environ.get('CLOUDINARY_URL')
     cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
